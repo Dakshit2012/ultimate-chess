@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ultimate Chess</title>
 
-  <!-- Chessboard Styles -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.css">
+  <!-- Styles -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard.min.css">
   <style>
     body {
       background: #121212; color: #fff; font-family: 'Segoe UI', sans-serif;
@@ -59,6 +59,7 @@
       <option value="classicalInc">Classical+ (60|30)</option>
     </select>
     <button onclick="exportPGN()">Export PGN</button>
+    <button onclick="location.href='tournament.html'">🏆 Tournament</button>
   </div>
 
   <div id="clocks">
@@ -75,25 +76,15 @@
   <button onclick="sendMsg()">Send</button>
 
   <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chess.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
-  <!-- Your Firebase config -->
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyC_ehw0esOn3pnioM8OsRQBvVDnxZPGJms",
-      authDomain: "ultimate-chess-882ef.firebaseapp.com",
-      projectId: "ultimate-chess-882ef",
-      storageBucket: "ultimate-chess-882ef.appspot.com",
-      messagingSenderId: "1053103885430",
-      appId: "1:1053103885430:web:645bf6eca13f533083a357",
-      measurementId: "G-VL0YV37W7W"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-  </script>
+  <!-- Modules -->
+  <script src="firebase-config.js"></script>
+  <script src="timer.js"></script>
+  <script src="stockfish.js"></script>
 
   <!-- Main Logic -->
   <script>
@@ -101,6 +92,8 @@
     let board;
     let playerColor = 'w';
     let roomRef = null;
+
+    const db = firebase.database();
 
     function updateStatus(msg) {
       document.getElementById("status").textContent = msg;
@@ -110,10 +103,11 @@
       const room = document.getElementById("roomInput").value.trim();
       if (!room) return alert("Enter Room ID");
       roomRef = db.ref("rooms/" + room);
-      roomRef.set({ fen: game.fen(), chat: [] });
+      roomRef.set({ fen: game.fen(), chat: [], white: whiteTime, black: blackTime });
       playerColor = 'w';
       listenRoom();
       updateStatus("Room created: " + room);
+      startClock();
     }
 
     function joinRoom() {
@@ -123,6 +117,7 @@
       playerColor = 'b';
       listenRoom();
       updateStatus("Joined room: " + room);
+      startClock();
     }
 
     function listenRoom() {
@@ -131,6 +126,7 @@
         if (fen && fen !== game.fen()) {
           game.load(fen);
           board.position(fen, true);
+          evalPosition(fen);
           logMove(game.history().slice(-1)[0]);
         }
       });
@@ -145,6 +141,9 @@
         });
         chatBox.scrollTop = chatBox.scrollHeight;
       });
+
+      roomRef.child("white").on("value", s => updateClock("white", s.val()));
+      roomRef.child("black").on("value", s => updateClock("black", s.val()));
     }
 
     function sendMsg() {
@@ -173,23 +172,22 @@
       a.click();
     }
 
-    // Initialize board AFTER page fully loads
-    window.onload = () => {
+    window.addEventListener("load", () => {
       board = Chessboard('board', {
         draggable: true,
         position: 'start',
-        onDrop: function (src, dst) {
+        onDrop: function(src, dst) {
           if (game.turn() !== playerColor) return 'snapback';
           const move = game.move({ from: src, to: dst, promotion: 'q' });
           if (!move) return 'snapback';
           roomRef.child("fen").set(game.fen());
+          decrementClock(playerColor === 'w' ? 'white' : 'black');
+          evalPosition(game.fen());
           logMove(move.san);
         }
       });
-
       updateStatus("Enter room to play");
-    };
+    });
   </script>
 </body>
 </html>
-
