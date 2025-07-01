@@ -7,15 +7,16 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.css">
   <style>
     body { background: #121212; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; text-align: center; }
-    #topbar { padding: 10px; background: #1f1f1f; display: flex; justify-content: space-around; align-items: center; }
+    #topbar { padding: 10px; background: #1f1f1f; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; align-items: center; }
     #board { width: 400px; margin: 20px auto; }
     #chat, #log { width: 400px; margin: auto; height: 100px; background: #222; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
-    input, button { padding: 8px; margin: 5px; border-radius: 5px; border: none; }
-    button { background: #333; color: white; }
+    input, button, select { padding: 8px; border-radius: 5px; border: none; }
+    button, select { background: #333; color: white; }
     #clocks { display: flex; justify-content: space-around; font-size: 18px; margin-top: 10px; }
     #engineEval { margin-top: 10px; font-size: 14px; color: #a0ffa0; }
     @media (max-width: 500px) {
       #board, #chat, #log { width: 90%; }
+      #topbar { flex-direction: column; }
     }
   </style>
 </head>
@@ -24,6 +25,16 @@
     <input id="roomInput" placeholder="Room ID" />
     <button onclick="createRoom()">Create</button>
     <button onclick="joinRoom()">Join</button>
+    <select onchange="setMode(this.value)">
+      <option disabled selected>⏳ Time Mode</option>
+      <option value="bullet">Bullet (1|0)</option>
+      <option value="blitz">Blitz (3|0)</option>
+      <option value="blitz5">Blitz (5|0)</option>
+      <option value="rapid">Rapid (10|0)</option>
+      <option value="rapidInc">Rapid (15|10)</option>
+      <option value="classical">Classical (30|0)</option>
+      <option value="classicalInc">Classical+ (60|30)</option>
+    </select>
     <button onclick="exportPGN()">Export PGN</button>
   </div>
 
@@ -40,13 +51,18 @@
   <input id="msg" placeholder="Chat..." />
   <button onclick="sendMsg()">Send</button>
 
+  <!-- LIBRARIES -->
   <script src="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chess.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+  <!-- MODULES -->
   <script src="firebase-config.js"></script>
-  <script src="stockfish.js"></script>
+  <script src="stockfish.js"></script> <!-- Optional: Will add content next -->
   <script src="timer.js"></script>
+
+  <!-- MAIN SCRIPT -->
   <script>
     let game = new Chess();
     let board;
@@ -64,7 +80,7 @@
       const room = document.getElementById("roomInput").value.trim();
       if (!room) return alert("Enter Room ID");
       roomRef = db.ref("rooms/" + room);
-      roomRef.set({ fen: game.fen(), chat: [], white: 300, black: 300 });
+      roomRef.set({ fen: game.fen(), chat: [], white: whiteTime, black: blackTime });
       playerColor = 'w';
       listenRoom();
       updateStatus("Room created: " + room);
