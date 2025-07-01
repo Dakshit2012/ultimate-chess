@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ultimate Chess Tournament</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial; background: #111; color: #fff; text-align: center; padding: 20px; }
+    input, button { padding: 10px; margin: 5px; font-size: 16px; }
+    .player-box { background: #222; padding: 10px; margin: 5px auto; width: 200px; border-radius: 6px; }
+    #bracket { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; }
+    .round { display: flex; flex-direction: column; gap: 10px; }
+  </style>
+</head>
+<body>
+  <h1>♟ Ultimate Chess Tournament</h1>
+
+  <input id="tournamentName" placeholder="Tournament Name" />
+  <br />
+  <textarea id="players" placeholder="Enter 4 or 8 player names, one per line" rows="6" cols="30"></textarea>
+  <br />
+  <button onclick="startTournament()">Start Tournament</button>
+
+  <div id="bracket"></div>
+
+  <script>
+    let tournamentData = [];
+
+    function startTournament() {
+      const names = document.getElementById("players").value.trim().split("\n").filter(n => n.trim() !== "");
+      if (![2, 4, 8, 16].includes(names.length)) {
+        alert("Enter 2, 4, 8, or 16 player names.");
+        return;
+      }
+
+      const round1 = [];
+      for (let i = 0; i < names.length; i += 2) {
+        const roomID = `game_${Date.now()}_${i}`;
+        round1.push({ p1: names[i], p2: names[i+1], room: roomID, winner: null });
+      }
+      tournamentData = [round1];
+      renderBracket();
+    }
+
+    function renderBracket() {
+      const bracket = document.getElementById("bracket");
+      bracket.innerHTML = "";
+
+      tournamentData.forEach((round, idx) => {
+        const div = document.createElement("div");
+        div.className = "round";
+        div.innerHTML = `<h3>Round ${idx + 1}</h3>`;
+        round.forEach(match => {
+          const matchHTML = `
+            <div class="player-box">
+              ${match.p1} vs ${match.p2}<br/>
+              Room: <a href="index.html?room=${match.room}" target="_blank">${match.room}</a><br/>
+              <button onclick="advance('${match.room}', '${match.p1}')">${match.p1} wins</button>
+              <button onclick="advance('${match.room}', '${match.p2}')">${match.p2} wins</button>
+            </div>
+          `;
+          div.innerHTML += matchHTML;
+        });
+        bracket.appendChild(div);
+      });
+    }
+
+    function advance(roomID, winnerName) {
+      const lastRound = tournamentData[tournamentData.length - 1];
+      for (const match of lastRound) {
+        if (match.room === roomID) {
+          match.winner = winnerName;
+        }
+      }
+
+      const winners = lastRound.map(m => m.winner).filter(Boolean);
+      if (winners.length === lastRound.length && winners.length > 1) {
+        const newRound = [];
+        for (let i = 0; i < winners.length; i += 2) {
+          const roomID = `game_${Date.now()}_${i}`;
+          newRound.push({ p1: winners[i], p2: winners[i + 1], room: roomID, winner: null });
+        }
+        tournamentData.push(newRound);
+      }
+
+      renderBracket();
+    }
+  </script>
+</body>
+</html>
