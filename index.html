@@ -1,27 +1,154 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ultimate Chess Pro</title>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
+  <title>Ultimate Chess Pro+</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.css">
+  <style>
+    body { background: #121212; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; text-align: center; }
+    #topbar { padding: 10px; background: #1f1f1f; display: flex; justify-content: space-around; align-items: center; }
+    #board { width: 400px; margin: 20px auto; }
+    #chat, #log { width: 400px; margin: auto; height: 100px; background: #222; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
+    input, button { padding: 8px; margin: 5px; border-radius: 5px; border: none; }
+    button { background: #333; color: white; }
+    #clocks { display: flex; justify-content: space-around; font-size: 18px; margin-top: 10px; }
+    #engineEval { margin-top: 10px; font-size: 14px; color: #a0ffa0; }
+    @media (max-width: 500px) {
+      #board, #chat, #log { width: 90%; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Ultimate Chess Pro</h1>
-  <p>This is a minimal functional prototype. Full implementation includes Firebase multiplayer, Stockfish, chat, timers, PGN, and UI rivaling Chess.com</p>
+  <div id="topbar">
+    <input id="roomInput" placeholder="Room ID" />
+    <button onclick="createRoom()">Create</button>
+    <button onclick="joinRoom()">Join</button>
+    <button onclick="exportPGN()">Export PGN</button>
+  </div>
+
+  <div id="clocks">
+    ⏱ White: <span id="whiteClock">05:00</span>
+    ⏱ Black: <span id="blackClock">05:00</span>
+  </div>
+
+  <div id="board"></div>
+  <p id="status">Not connected</p>
+  <div id="log"></div>
+  <div id="engineEval">💡 Best move: -- | Eval: --</div>
+  <div id="chat"></div>
+  <input id="msg" placeholder="Chat..." />
+  <button onclick="sendMsg()">Send</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chess.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="stockfish.js"></script>
+  <script src="timer.js"></script>
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDemo-Key123",
-      authDomain: "ultimate-chess.firebaseapp.com",
-      projectId: "ultimate-chess",
-      storageBucket: "ultimate-chess.appspot.com",
-      messagingSenderId: "1234567890",
-      appId: "1:1234567890:web:abcdef123456"
-    };
-    firebase.initializeApp(firebaseConfig);
+    let game = new Chess();
+    let board;
+    let playerColor = 'w';
+    let roomRef = null;
+    let clockInterval = null;
+
+    const db = firebase.database();
+
+    function updateStatus(msg) {
+      document.getElementById("status").textContent = msg;
+    }
+
+    function createRoom() {
+      const room = document.getElementById("roomInput").value.trim();
+      if (!room) return alert("Enter Room ID");
+      roomRef = db.ref("rooms/" + room);
+      roomRef.set({ fen: game.fen(), chat: [], white: 300, black: 300 });
+      playerColor = 'w';
+      listenRoom();
+      updateStatus("Room created: " + room);
+      startClock();
+    }
+
+    function joinRoom() {
+      const room = document.getElementById("roomInput").value.trim();
+      if (!room) return alert("Enter Room ID");
+      roomRef = db.ref("rooms/" + room);
+      playerColor = 'b';
+      listenRoom();
+      updateStatus("Joined room: " + room);
+      startClock();
+    }
+
+    function listenRoom() {
+      roomRef.child("fen").on("value", snap => {
+        const fen = snap.val();
+        if (fen && fen !== game.fen()) {
+          game.load(fen);
+          board.position(fen, true);
+          evalPosition(fen);
+          logMove(game.history().slice(-1)[0]);
+        }
+      });
+
+      roomRef.child("chat").on("value", snap => {
+        const chatBox = document.getElementById("chat");
+        chatBox.innerHTML = "";
+        snap.forEach(child => {
+          const div = document.createElement("div");
+          div.textContent = child.val();
+          chatBox.appendChild(div);
+        });
+        chatBox.scrollTop = chatBox.scrollHeight;
+      });
+
+      roomRef.child("white").on("value", s => updateClock("white", s.val()));
+      roomRef.child("black").on("value", s => updateClock("black", s.val()));
+    }
+
+    function sendMsg() {
+      const msg = document.getElementById("msg").value.trim();
+      if (msg && roomRef) {
+        roomRef.child("chat").push(playerColor + ": " + msg);
+        document.getElementById("msg").value = "";
+      }
+    }
+
+    function logMove(move) {
+      if (!move) return;
+      const log = document.getElementById("log");
+      const p = document.createElement("div");
+      p.textContent = move;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function exportPGN() {
+      const blob = new Blob([game.pgn()], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "game.pgn";
+      a.click();
+    }
+
+    board = Chessboard('board', {
+      draggable: true,
+      position: 'start',
+      onDrop: function(src, dst) {
+        if (game.turn() !== playerColor) return 'snapback';
+        const move = game.move({ from: src, to: dst, promotion: 'q' });
+        if (!move) return 'snapback';
+        roomRef.child("fen").set(game.fen());
+        decrementClock(playerColor === 'w' ? 'white' : 'black');
+        evalPosition(game.fen());
+        logMove(move.san);
+      }
+    });
+
+    updateStatus("Enter room to play");
   </script>
 </body>
 </html>
+
