@@ -1,19 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Ultimate Chess Pro+</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ultimate Chess</title>
+
+  <!-- Styles -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.css">
   <style>
-    body { background: #121212; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; text-align: center; }
-    #topbar { padding: 10px; background: #1f1f1f; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; align-items: center; }
+    body {
+      background: #121212; color: #fff; font-family: 'Segoe UI', sans-serif;
+      margin: 0; text-align: center;
+    }
+    #topbar {
+      padding: 10px; background: #1f1f1f; display: flex;
+      flex-wrap: wrap; justify-content: center; gap: 10px;
+      align-items: center;
+    }
     #board { width: 400px; margin: 20px auto; }
-    #chat, #log { width: 400px; margin: auto; height: 100px; background: #222; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
-    input, button, select { padding: 8px; border-radius: 5px; border: none; }
+    #chat, #log {
+      width: 400px; margin: auto; height: 100px;
+      background: #222; overflow-y: auto;
+      border: 1px solid #444; padding: 10px;
+      margin-bottom: 10px;
+    }
+    input, button, select {
+      padding: 8px; border-radius: 5px; border: none;
+      font-size: 14px;
+    }
     button, select { background: #333; color: white; }
-    #clocks { display: flex; justify-content: space-around; font-size: 18px; margin-top: 10px; }
-    #engineEval { margin-top: 10px; font-size: 14px; color: #a0ffa0; }
+    #clocks {
+      display: flex; justify-content: space-around;
+      font-size: 18px; margin-top: 10px;
+    }
+    #engineEval {
+      margin-top: 10px; font-size: 14px;
+      color: #a0ffa0;
+    }
     @media (max-width: 500px) {
       #board, #chat, #log { width: 90%; }
       #topbar { flex-direction: column; }
@@ -51,24 +74,23 @@
   <input id="msg" placeholder="Chat..." />
   <button onclick="sendMsg()">Send</button>
 
-  <!-- LIBRARIES -->
+  <!-- Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/dist/chessboard.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chess.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
-  <!-- MODULES -->
+  <!-- Modules -->
   <script src="firebase-config.js"></script>
-  <script src="stockfish.js"></script> <!-- Optional: Will add content next -->
   <script src="timer.js"></script>
+  <script src="stockfish.js"></script>
 
-  <!-- MAIN SCRIPT -->
+  <!-- Main Logic -->
   <script>
     let game = new Chess();
     let board;
     let playerColor = 'w';
     let roomRef = null;
-    let clockInterval = null;
 
     const db = firebase.database();
 
